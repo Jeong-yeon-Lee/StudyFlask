@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sparta Vocabulary Notebook</title>
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <link href="//maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='mystyle.css') }}" rel="stylesheet">
+    <script>
+        let word = '{{ word }}'
+        let status = '{{status}}'
+
+        $(document).ready(function() {
+            //get_definitions()
+            if (status == "new") {
+                $('#btn-delete').hide()
+                $('#examples').hide()
+            } else {
+                $('#btn-save').hide()
+                get_examples()
+            }
+        })
+
+        function get_definitions() {
+            $.ajax({
+                type: "GET",
+                url: `https://owlbot.info/api/v4/dictionary/${word}`,
+                beforeSend: function(xhr) {
+                    xhr.setRequestHeader("Authorization", "Token 9df777142e7d9e6405c7ec5f50f5ed64d8f76e4e");
+                },
+                data: {},
+                error: function(xhr, status, error) {
+                    alert("에러 발생!");
+                },
+                success: function(response) {
+                    console.log(response);
+                    $('#word').text(response["word"]);
+                    if (response["pronunciation"] == null) {
+                        $('#pronunciation').text("");
+                    } else {
+                        $('#pronunciation').text(`/${response["pronunciation"]}/`);
+                    }
+                    $('#definitions').empty;
+                    let definitions = response['definitions']
+
+                    for (let i = 0; i < definitions.length; i++) {
+                        let definition = definitions[i]
+                        let tempHtml = ""
+                        if (definition['example'] == null) {
+                            let tempHtml = `<div style="padding:10px">
+                                <i>${definition['type']}</i>
+                                <br>${definition['definition']}<br>
+                             </div>`
+
+                        } else {
+                            let tempHtml = `<div style="padding:10px">
+                                        <i>${definition['type']}</i>
+                                        <br>${definition['definition']}<br>
+                                        <span class="example">${definition['example']}</span>
+                                     </div>`
+                            $('#definitions').append(tempHtml);
+                        }
+                        $('#definitions').append(tempHtml);
+                    }
+                }
+            })
+        }
+
+        function save_word() {
+            $.ajax({
+                type: "POST",
+                url: `/api/save_word`,
+                data: {
+                    word_give: "{{word}}",
+                    definition_give: "{{result.definitions[0].definition}}"
+
+                },
+                success: function(response) {
+                    alert(response["msg"])
+                    $('#btn-save').hide();
+                    $('#btn-delete').show();
+                    status = "old"
+                }
+            });
+        }
+
+        function delete_word() {
+            $.ajax({
+                type: "POST",
+                url: `/api/delete_word`,
+                data: {
+                    word_give: "{{word}}"
+                },
+                success: function(response) {
+                    alert(response["msg"])
+                    window.location.href = "/"
+                }
+            });
+        }
+
+        function get_examples() {
+            $("#example-list").empty()
+            $.ajax({
+                type: "GET",
+                url: `/api/get_exs?word_give=${word}`,
+                data: {},
+                success: function (response) {
+                    console.log(response)
+                    let examples=response["examples"]
+                    for(let i=0; i<examples.length;i++){
+                        let example=examples[i];
+                        let tempHtml=` <li id="ex-${i}">${example["example"]}&nbsp;&nbsp;&nbsp;<a
+                href="javascript:delete_ex(${i})">delete</a></li>`
+                $('#example-list').append(tempHtml)
+                    }
+                }
+            });
+        }
+
+function add_ex() {
+    let new_ex = $('#new-example').val();
+    if(!new_ex.toLowerCase().includes(word)){
+        alert(`단어 ${word}를 포함하는 예문을 적어주세요`)
+        return
+    }
+    console.log(new_ex)
+    $.ajax({
+        type: "POST",
+        url: `/api/save_ex`,
+        data: {
+            word_give:word,
+            example_give:new_ex
+        },
+        success: function (response) {
+            console.log(response)
+            get_examples()
+            $('#new-example').val("")
+        }
+    });
+
+
+}
+
+function delete_ex(i) {
+    console.log("deleting", i)
+    $.ajax({
+        type: "POST",
+        url: `/api/delete_ex`,
+        data: {
+            word_give: word,
+            number_give: i
+        },
+        success: function (response) {
+            get_examples()
+        }
+    });
+}
+    </script>
+<style>
+li>a{
+    color:lightgrey;
+}
+li>a:hover{
+    color:grey;
+}
+</style>
+
+
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="banner" onclick="window.location.href = '/'">
+        </div>
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-end">
+                <div>
+                    <h1 id="word" style="display: inline;">{{result.word}}</h1>
+                    {% if result.pronunciation%}
+                    <h5 id="pronunciation" style="display: inline;">/{{result.pronunciation}}/</h5>
+                    {%endif%}
+                </div>
+                <button id="btn-save" class="btn btn-outline-sparta btn-lg" onclick="save_word()"><i
+                        class="fa fa-floppy-o" aria-hidden="true"></i></button>
+                <button id="btn-delete" class="btn btn-sparta btn-lg" onclick="delete_word()"><i class="fa fa-trash-o"
+                        aria-hidden="true"></i></button>
+            </div>
+            <hr>
+            <div id="definitions">
+                {% for definition in result.definitions %}
+                <div style="padding:10px">
+                    <i>{{definition.type}}</i>
+                    <br>{{definition.definition}}<br> {% if definition.example%}
+                    <span class="example">{{definition.example|safe}}</span> {%endif%}
+                </div>
+
+                {% endfor %}
+            </div>
+        </div>
+
+<div id="examples" class="container">
+    <h3 style="text-align: center;margin-bottom:1rem">Write your own sentences!</h3>
+    <ul id="example-list">
+        <li id="ex-0">This sentence contains the word 'word'.&nbsp;&nbsp;&nbsp;<a
+                href="javascript:delete_ex(0)">delete</a></li>
+        <li id="ex-1">I don't like using the MS Word program.&nbsp;&nbsp;&nbsp;<a
+                href="javascript:delete_ex(1)">delete</a></li>
+    </ul>
+    <div class="d-flex justify-content-between" style="margin-left:20px;">
+        <input id="new-example" class="form-control form-control-sm" style="margin-right: 0.5rem">
+        <button class="btn btn-outline-secondary btn-sm" onclick="add_ex()">add</button>
+    </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+    
+
+
+
+
+
+
+
+
+</body>
+
+</html>
